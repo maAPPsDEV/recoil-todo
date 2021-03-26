@@ -1,60 +1,122 @@
-import {atom, RecoilRoot, selector, useRecoilState, useRecoilValue} from "recoil";
+import {atom, RecoilRoot, selector, useRecoilState, useRecoilValue, useSetRecoilState} from 'recoil';
+import {useState} from 'react';
 
-// Atom
-const textState = atom({
-  key: 'textState', // unique ID
-  default: '', // default value
+// @RECOIL: Atom
+const todoListState = atom({
+  key: 'todoListState',
+  default: [],
 });
 
-// Selector
-const charCountState = selector({
-  key: 'charCountState', // unique ID
-  get: ({get}) => {
-    const text = get(textState);
 
-    return text.length;
-  },
-});
+// @RECOIL: Selector
 
 function App() {
   return (
-    // Wrap
+    // @RECOIL: Wrap
     <RecoilRoot>
-      <CharacterCounter />
+      <TodoList />
     </RecoilRoot>
   );
 }
 
-function CharacterCounter() {
+// utility for creating unique Id
+let id = 0;
+function getId() {
+  return id++;
+}
+
+// utility for array
+function replaceItemAtIndex(arr, index, newValue) {
+  return [...arr.slice(0, index), newValue, ...arr.slice(index + 1)];
+}
+
+function removeItemAtIndex(arr, index) {
+  return [...arr.slice(0,index), ...arr.slice(index + 1)];
+}
+
+function TodoList() {
+  // @RECOIL: subscriber
+  const todoList = useRecoilValue(todoListState);
+
   return (
-    <div>
-      <TextInput />
-      <CharacterCount />
-    </div>
+    <>
+      <TodoItemCreator />
+      {todoList.map((todoItem) => (
+        <TodoItem key={todoItem.id} item={todoItem} />
+      ))}
+    </>
   );
 }
 
-function TextInput() {
-  // Subscribe
-  const [text, setText] = useRecoilState(textState);
+function TodoItemCreator() {
+  const [inputValue, setInputValue] = useState('');
+  // @RECOIL: updater
+  const setTodoList = useSetRecoilState(todoListState);
 
-  const onChange = (event) => {
-    setText(event.target.value);
+  const addItem = () => {
+    setTodoList((oldTodoList) => [
+      ...oldTodoList,
+      {
+        id: getId(),
+        text: inputValue,
+        isComplete: false,
+      },
+    ]);
+    setInputValue('');
+  };
+
+  const onChange = ({target: {value}}) => {
+    setInputValue(value);
   };
 
   return (
     <div>
-      <input type="text" value={text} onChange={onChange} />
-      <br />
-      Echo: {text}
+      <input type="text" value={inputValue} onChange={onChange} />
+      <button onClick={addItem}>Add</button>
     </div>
   );
 }
 
-function CharacterCount() {
-  const count = useRecoilValue(charCountState);
+function TodoItem({item}) {
+  // @RECOIL: subscribe
+  const [todoList, setTodoList] = useRecoilState(todoListState);
+  const index = todoList.findIndex((listItem) => listItem === item);
 
-  return <>Character Count: {count}</>;
+  const editItemText = ({target: {value}}) => {
+    const newList = replaceItemAtIndex(todoList, index, {
+      ...item,
+      text: value,
+    });
+
+    setTodoList(newList);
+  };
+
+  const toggleItemCompletion = () => {
+    const newList = replaceItemAtIndex(todoList, index, {
+      ...item,
+      isComplete: !item.isComplete,
+    });
+
+    setTodoList(newList);
+  };
+
+  const deleteItem = () => {
+    const newList = removeItemAtIndex(todoList, index);
+
+    setTodoList(newList);
+  };
+
+  return (
+    <div>
+      <input
+        type="checkbox"
+        checked={item.isComplete}
+        onChange={toggleItemCompletion}
+      />
+      <input type="text" value={item.text} onChange={editItemText} />
+      <button onClick={deleteItem}>X</button>
+    </div>
+  );
 }
 
 export default App;
